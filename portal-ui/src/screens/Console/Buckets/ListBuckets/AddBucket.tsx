@@ -42,6 +42,7 @@ import {
 import { useDebounce } from "use-debounce";
 import { MakeBucketRequest } from "../types";
 import FormSwitchWrapper from "../../Common/FormComponents/FormSwitchWrapper/FormSwitchWrapper";
+import { isNullOrUndefined } from "util";
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -203,6 +204,13 @@ const AddBucket = ({
       addBucketRetention(false);
     }
 
+    if (
+      enableRetention &&
+      (Number.isNaN(retentionValidity) || retentionValidity < 1)
+    ) {
+      valid = false;
+    }
+
     setSendEnabled(valid);
   }, [
     bucketName,
@@ -212,6 +220,7 @@ const AddBucket = ({
     quotaUnit,
     enableQuota,
     enableRetention,
+    retentionValidity,
   ]);
 
   return (

@@ -34,6 +34,10 @@ import {
   addBucketQuotaType,
   addBucketQuotaUnit,
   addBucketVersioned,
+  addBucketRetention,
+  addBucketRetentionMode,
+  addBucketRetentionUnit,
+  addBucketRetentionValidity,
 } from "../actions";
 import { useDebounce } from "use-debounce";
 import { MakeBucketRequest } from "../types";
@@ -74,12 +78,20 @@ interface IAddBucketProps {
   addBucketQuotaType: typeof addBucketQuotaType;
   addBucketQuotaSize: typeof addBucketQuotaSize;
   addBucketQuotaUnit: typeof addBucketQuotaUnit;
+  addBucketRetention: typeof addBucketRetention;
+  addBucketRetentionMode: typeof addBucketRetentionMode;
+  addBucketRetentionUnit: typeof addBucketRetentionUnit;
+  addBucketRetentionValidity: typeof addBucketRetentionValidity;
   bucketName: string;
   versioned: boolean;
   enableQuota: boolean;
   quotaType: string;
   quotaSize: string;
   quotaUnit: string;
+  enableRetention: boolean;
+  retentionMode: string;
+  retentionUnit: string;
+  retentionValidity: number;
 }
 
 const AddBucket = ({
@@ -92,14 +104,21 @@ const AddBucket = ({
   addBucketQuotaType,
   addBucketQuotaSize,
   addBucketQuotaUnit,
+  addBucketRetention,
+  addBucketRetentionMode,
+  addBucketRetentionUnit,
+  addBucketRetentionValidity,
   bucketName,
   versioned,
   enableQuota,
   quotaType,
   quotaSize,
   quotaUnit,
+  enableRetention,
+  retentionMode,
+  retentionUnit,
+  retentionValidity,
 }: IAddBucketProps) => {
-  const [bName, setBName] = useState<string>(bucketName);
   const [addLoading, setAddLoading] = useState<boolean>(false);
   const [addError, setAddError] = useState<string>("");
   const [sendEnabled, setSendEnabled] = useState<boolean>(false);
@@ -125,6 +144,14 @@ const AddBucket = ({
       };
     }
 
+    if (enableRetention) {
+      request.retention = {
+        mode: retentionMode,
+        unit: retentionUnit,
+        validity: retentionValidity,
+      };
+    }
+
     api
       .invoke("POST", "/api/v1/buckets", request)
       .then((res) => {
@@ -136,27 +163,33 @@ const AddBucket = ({
         setAddLoading(false);
         setAddError(err);
       });
+
+    resetForm();
   };
 
-  const [value] = useDebounce(bName, 1000);
+  const [value] = useDebounce(bucketName, 1000);
 
   useEffect(() => {
     addBucketName(value);
   }, [value, addBucketName]);
 
   const resetForm = () => {
-    setBName("");
+    addBucketName("");
     addBucketVersioned(false);
     addBucketQuota(false);
     addBucketQuotaType("hard");
     addBucketQuotaSize("1");
     addBucketQuotaUnit("TiB");
+    addBucketRetention(false);
+    addBucketRetentionMode("compliance");
+    addBucketRetentionUnit("days");
+    addBucketRetentionValidity(1);
   };
 
   useEffect(() => {
     let valid = false;
 
-    if (bName.trim() !== "") {
+    if (bucketName.trim() !== "") {
       valid = true;
     }
 
@@ -166,8 +199,20 @@ const AddBucket = ({
       }
     }
 
+    if (!versioned) {
+      addBucketRetention(false);
+    }
+
     setSendEnabled(valid);
-  }, [bName, versioned, quotaType, quotaSize, quotaUnit, enableQuota]);
+  }, [
+    bucketName,
+    versioned,
+    quotaType,
+    quotaSize,
+    quotaUnit,
+    enableQuota,
+    enableRetention,
+  ]);
 
   return (
     <ModalWrapper
@@ -205,10 +250,10 @@ const AddBucket = ({
                 id="bucket-name"
                 name="bucket-name"
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                  setBName(event.target.value);
+                  addBucketName(event.target.value);
                 }}
                 label="Bucket Name"
-                value={bName}
+                value={bucketName}
               />
             </Grid>
             <Grid item xs={12}>
@@ -288,6 +333,69 @@ const AddBucket = ({
                 </Grid>
               </React.Fragment>
             )}
+            {versioned && (
+              <Grid item xs={12}>
+                <FormSwitchWrapper
+                  value="bucket_retention"
+                  id="bucket_retention"
+                  name="bucket_retention"
+                  checked={enableRetention}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    addBucketRetention(event.target.checked);
+                  }}
+                  label={"Enable Bucket Retention"}
+                  indicatorLabels={["On", "Off"]}
+                />
+              </Grid>
+            )}
+            {enableRetention && (
+              <React.Fragment>
+                <Grid item xs={12}>
+                  <SelectWrapper
+                    value={retentionMode}
+                    label="Retention Mode"
+                    id="retention_mode"
+                    name="retention_mode"
+                    onChange={(e: React.ChangeEvent<{ value: unknown }>) => {
+                      addBucketRetentionMode(e.target.value as string);
+                    }}
+                    options={[
+                      { value: "compliance", label: "Compliance" },
+                      { value: "governance", label: "Governance" },
+                    ]}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <SelectWrapper
+                    value={retentionUnit}
+                    label="Retention Unit"
+                    id="retention_unit"
+                    name="retention_unit"
+                    onChange={(e: React.ChangeEvent<{ value: unknown }>) => {
+                      addBucketRetentionUnit(e.target.value as string);
+                    }}
+                    options={[
+                      { value: "days", label: "Days" },
+                      { value: "years", label: "Years" },
+                    ]}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <InputBoxWrapper
+                    type="number"
+                    id="retention_validity"
+                    name="retention_validity"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      addBucketRetentionValidity(e.target.valueAsNumber);
+                    }}
+                    label="Retention Validity"
+                    value={String(retentionValidity)}
+                    required
+                    min="1"
+                  />
+                </Grid>
+              </React.Fragment>
+            )}
           </Grid>
           <Grid item xs={12} className={classes.buttonContainer}>
             <button
@@ -326,6 +434,10 @@ const mapState = (state: AppState) => ({
   quotaType: state.buckets.addBucketQuotaType,
   quotaSize: state.buckets.addBucketQuotaSize,
   quotaUnit: state.buckets.addBucketQuotaUnit,
+  enableRetention: state.buckets.addBucketRetentionEnabled,
+  retentionMode: state.buckets.addBucketRetentionMode,
+  retentionUnit: state.buckets.addBucketRetentionUnit,
+  retentionValidity: state.buckets.addBucketRetentionValidity,
 });
 
 const connector = connect(mapState, {
@@ -335,6 +447,10 @@ const connector = connect(mapState, {
   addBucketQuotaType: addBucketQuotaType,
   addBucketQuotaSize: addBucketQuotaSize,
   addBucketQuotaUnit: addBucketQuotaUnit,
+  addBucketRetention: addBucketRetention,
+  addBucketRetentionMode: addBucketRetentionMode,
+  addBucketRetentionUnit: addBucketRetentionUnit,
+  addBucketRetentionValidity: addBucketRetentionValidity,
 });
 
 export default connector(withStyles(styles)(AddBucket));
